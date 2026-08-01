@@ -7,8 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "build:clean": "npm run clean && next build",
+    "build": "npm run clean && next build",
+    "build:incremental": "next build",
     "clean": "node -e \"['.next','tsconfig.tsbuildinfo','node_modules/.cache','test-results','playwright-report'].forEach(p=>require('fs').rmSync(p,{recursive:true,force:true}))\"",
     "start": "next start",
     "lint": "eslint",

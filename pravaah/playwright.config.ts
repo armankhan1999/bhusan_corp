@@ -46,8 +46,14 @@ export default defineConfig({
      * survives it and can emit page bundles that `require` a vendor chunk the
      * fresh build never writes. `next build` still reports success, then every
      * request dies with `Cannot find module './vendor-chunks/zod.js'` and the
-     * whole suite fails at sign-in — 60 red tests, one broken artefact. Use
-     * `npm run build:clean`, which clears the cache too, before a full run.
+     * whole suite fails at sign-in — 60 red tests, one broken artefact.
+     *
+     * `npm run build` therefore clears the cache first. The same corruption hit
+     * the deployed Edge bundle, where the restored Vercel cache produced a
+     * middleware that threw `__dirname is not defined` at module scope — a
+     * Node global that does not exist in the Edge runtime, and which appears
+     * nowhere in a locally built bundle. Use `build:incremental` only when you
+     * want speed and are willing to re-check a red result against a clean one.
      */
     reuseExistingServer: false,
     timeout: 180_000,
