@@ -48,12 +48,31 @@ export function encodeSession(s: Session): string {
 }
 
 /**
- * The 12 valid roles, derived from a map the compiler already proves exhaustive
- * over `Role`. Deriving rather than re-listing keeps this in step with the enum
- * without importing `lib/schemas/enums`, which would pull zod into the Edge
- * middleware bundle.
+ * The 12 valid roles, written out rather than derived.
+ *
+ * This was `new Set(Object.keys(LANDING_ROUTE))`, which reads better but
+ * evaluates at module scope against a binding owned by another module. Module
+ * initialisation order is the bundler's to decide, and a throw at module scope
+ * in middleware is not catchable by the handler below — it surfaces as
+ * `MIDDLEWARE_INVOCATION_FAILED`, taking down every route at once. This project
+ * has already lost a production bundle to exactly that class of bug (see
+ * `lib/seed/generator-types.ts`), so the Edge entry graph does no cross-module
+ * work at module scope. A literal cannot fail to initialise.
+ *
+ * `_exhaustive` below is compile-time only: it fails `tsc` if a role is added
+ * to the enum and not to this list, which is what deriving bought us.
  */
-const VALID_ROLES = new Set<string>(Object.keys(LANDING_ROUTE));
+const ROLE_LIST = [
+  "SUPER_ADMIN", "DIRECTOR_BUSINESS", "DIRECTOR_STRATEGY", "BRANCH_MANAGER",
+  "SALES_EXECUTIVE", "SERVICE_MANAGER", "FIELD_ENGINEER", "PROJECT_MANAGER",
+  "ACCOUNTS_EXECUTIVE", "HR_ADMIN", "STORE_INCHARGE", "AUDITOR",
+] as const;
+
+type _Exhaustive = Exclude<Role, (typeof ROLE_LIST)[number]> extends never ? true : never;
+const _exhaustive: _Exhaustive = true;
+void _exhaustive;
+
+const VALID_ROLES = new Set<string>(ROLE_LIST);
 
 export function isRole(value: unknown): value is Role {
   return typeof value === "string" && VALID_ROLES.has(value);
