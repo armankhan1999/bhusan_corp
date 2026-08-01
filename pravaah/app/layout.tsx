@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { Sora, Inter, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import { decodeSession, SESSION_COOKIE } from "@/lib/rbac/session";
@@ -12,7 +11,11 @@ const sora = Sora({ subsets: ["latin"], weight: ["600", "700"], variable: "--fon
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter", display: "swap" });
 const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-jetbrains", display: "swap" });
 
-export const metadata: Metadata = {
+// Deliberately untyped. Vercel's route-config analyser walks the TypeScript AST of
+// every app-router segment and fails the deploy on a type annotation here with
+// `Error: Unhandled type: "ColonToken"` -- after a clean build of all 80 routes.
+// Next.js validates the shape at build time regardless. Do not re-add the annotation.
+export const metadata = {
   title: "Pravaah — Bhushan Corp Operations",
   description:
     "Unified operations and intelligence platform for Bhushancorp Private Limited, Patna. Prototype with simulated integrations.",

@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import {
   buildBranchRefs, buildChallanRows, buildChallanSources, buildSeries, ctx, readActor,
 } from "@/components/domain/commercial/data";
@@ -6,7 +5,11 @@ import { ChallansClient } from "@/components/domain/commercial/ChallansClient";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+// Deliberately untyped. Vercel's route-config analyser walks the TypeScript AST of
+// every app-router segment and fails the deploy on a type annotation here with
+// `Error: Unhandled type: "ColonToken"` -- after a clean build of all 80 routes.
+// Next.js validates the shape at build time regardless. Do not re-add the annotation.
+export const metadata = {
   title: "Delivery challans — Pravaah",
   description: "Statutory delivery challans with Rule 55 triplicate printing and e-way bill control.",
 };

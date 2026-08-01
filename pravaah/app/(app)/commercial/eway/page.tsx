@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { buildChallanRows, buildEwayRows, ctx, readActor } from "@/components/domain/commercial/data";
 import { stableDigits } from "@/components/domain/commercial/gst";
 import { DEFAULT_SETTINGS } from "@/components/domain/commercial/types";
@@ -6,7 +5,11 @@ import { EwayClient, type EwayBaseOption } from "./EwayClient";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
+// Deliberately untyped. Vercel's route-config analyser walks the TypeScript AST of
+// every app-router segment and fails the deploy on a type annotation here with
+// `Error: Unhandled type: "ColonToken"` -- after a clean build of all 80 routes.
+// Next.js validates the shape at build time regardless. Do not re-add the annotation.
+export const metadata = {
   title: "E-way bills — Pravaah",
   description: "Simulated e-way bills with threshold, validity and the stale-base-document block enforced by the platform.",
 };

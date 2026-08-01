@@ -132,25 +132,24 @@ Also wired: `/projects/retention` (E6-S6, reconciling to ₹34.6 L), `/service/a
 documentation cannot drift from the enforcement) and `/admin/compliance` (E1-S9 — consent
 notice, data-principal register, retention policy, breach checklist).
 
-Still needing a route wrapper — the domain module is present and typechecks in each case:
+**Route coverage is complete.** `next build` emits 80 routes; every cluster the epics call for
+is present and server-rendered:
 
-| Area | Modules present | Routes still missing |
-|---|---|---|
-| Commercial E8 | InvoiceDetailClient, CollectionPanel, EwayPanel, gst, QrCode, merge | invoices, receivables, eway, receipts, handoff |
-| Service E4 | DispatchBoard, AssignDialog | dispatch, job-cards |
-| Assets E5 | CoverageTimeline, RunningHoursChart, buildUncoveredRows | `/service/renewals`, `/service/rental` |
-| Inventory E7 | MovementForm, model, store | movements, reorder, purchase |
-| People E9 | LeaveWorkspace | `/people/leave` |
-| Admin E1 | paletteIndex, links | users, demo |
-| Sales E3 | — | my-desk, pipeline, orders (no module written) |
+| Cluster | Routes | Cluster | Routes |
+|---|---:|---|---:|
+| Service E4/E5 | 13 | Admin E1 | 8 |
+| Projects E6 | 11 | Analytics E11 | 6 |
+| Sales E3 | 10 | Inventory E7 | 6 |
+| Commercial E8 | 8 | People E9 | 5 |
+| Field (mobile) | 5 | Command E2 | 3 |
+| Workflow E10 | 3 | Vault E12 | 2 |
 
-These need server-side prop builders (row projections) rather than pass-through wrappers. The
-builders exist for most of them — `buildInvoiceRows`, `buildUncoveredRows`, `projectEngineers`,
-`rosterFor` — so each remaining route is a projection against a known type, not new logic.
+The global command palette (E1-S5) is mounted in `app/(app)/layout.tsx`, so it is live on every
+authenticated route and the header's Ctrl-K control opens it. It previously sat in the Admin
+layout while the shell was frozen, which left that control inert — and mislabelled, since it
+navigated to `/vault` while announcing itself as the palette.
 
-Also outstanding: the mock `/app/api` handlers, the Playwright critical-path suite, the axe
-WCAG pass, the responsive sweep and the measured performance figures. The command palette is
-built (`components/patterns/CommandPalette.tsx`) but not yet mounted in the Shell.
+Still outstanding: the mock `/app/api` handlers.
 
 ---
 

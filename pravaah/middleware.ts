@@ -88,18 +88,18 @@ export function middleware(req: NextRequest) {
   }
 }
 
-export const config = {
-  /**
-   * Keep this expression boring. Vercel compiles the matcher into its own
-   * routing table at the end of `vercel build`, and its parser is narrower than
-   * JavaScript's regex engine: adding a `.*\.` alternative here to skip
-   * extensioned paths built cleanly through all 80 routes and then failed the
-   * deploy with `Unhandled type: "ColonToken"` — a routing-compiler error, with
-   * nothing wrong in the application itself.
-   *
-   * This is the form that has always compiled. The finer exclusions it does not
-   * express — `_next/data`, static file extensions — are applied by `isOpen()`
-   * above, which costs one function invocation and cannot break a build.
-   */
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-};
+/**
+ * There is deliberately no `export const config` here.
+ *
+ * Vercel extracts a middleware's static config by parsing this file with the
+ * TypeScript compiler API and walking the exported object literal. That walk
+ * failed the deploy with `Error: Unhandled type: "ColonToken"` — the name of
+ * the `:` node in `ts.SyntaxKind` — after a clean build of all 80 routes. No
+ * matcher expression avoided it, because the problem is the object literal
+ * being parsed at all, not the pattern inside it.
+ *
+ * Without a matcher, middleware runs on every request. That is why `isOpen()`
+ * exists above: it returns on the first comparison for `_next`, API and asset
+ * paths, so the cost is one function invocation and the guard cannot be broken
+ * by a build-time parser.
+ */
