@@ -3,11 +3,9 @@
 /**
  * E1-S5 mount point.
  *
- * `Shell.tsx` is frozen for this wave, so the palette is mounted here and
- * rendered from the Admin layout instead. The header's Search control can be
- * pointed at it later with a one-line change — it only needs to dispatch
- * `PALETTE_EVENT` on `window`. Nothing else about the palette changes when it
- * moves into the shell.
+ * Rendered once from `app/(app)/layout.tsx`, so the palette is live on every
+ * authenticated route. The shell header's Search control opens it by calling
+ * `openCommandPalette()`, which dispatches `PALETTE_EVENT` on `window`.
  */
 
 import { CommandPalette, PALETTE_EVENT, type PaletteRecord } from "@/components/patterns/CommandPalette";

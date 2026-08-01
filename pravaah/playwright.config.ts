@@ -40,6 +40,14 @@ export default defineConfig({
      * replaced, and every request then throws `a[d] is not a function` from the
      * stale webpack runtime — which reads as an application crash when it is
      * really a stale server. Always boot fresh against the current build.
+     *
+     * Related, and worth knowing before trusting a red run: deleting `.next`
+     * alone is not a clean build. The webpack cache under `node_modules/.cache`
+     * survives it and can emit page bundles that `require` a vendor chunk the
+     * fresh build never writes. `next build` still reports success, then every
+     * request dies with `Cannot find module './vendor-chunks/zod.js'` and the
+     * whole suite fails at sign-in — 60 red tests, one broken artefact. Use
+     * `npm run build:clean`, which clears the cache too, before a full run.
      */
     reuseExistingServer: false,
     timeout: 180_000,

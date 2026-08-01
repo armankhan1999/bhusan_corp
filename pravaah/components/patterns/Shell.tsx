@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Boxes, Building2, ChevronLeft, FileText, Gauge, HardHat, LayoutGrid, Moon, Receipt,
@@ -13,6 +13,7 @@ import { can, type Capability } from "@/lib/rbac/matrix";
 import { encodeSession, SESSION_COOKIE, type Session } from "@/lib/rbac/session";
 import { cn } from "@/lib/utils";
 import { initials } from "@/lib/format";
+import { openCommandPalette } from "@/components/domain/admin/CommandPaletteMount";
 
 interface NavItem { label: string; href: string; cap: Capability }
 interface NavSection { label: string; icon: React.ComponentType<{ className?: string }>; items: NavItem[] }
@@ -104,7 +105,6 @@ export function Shell({
   session, unread, children,
 }: { session: Session; unread: number; children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [theme, setTheme] = useState(session.theme);
   const [density, setDensity] = useState(session.density);
@@ -228,7 +228,7 @@ export function Shell({
               type="button"
               className="flex h-8 items-center gap-2 rounded-md border border-line px-2 text-text-mid hover:border-line-strong hover:text-text-hi"
               aria-label="Open command palette"
-              onClick={() => router.push("/vault")}
+              onClick={openCommandPalette}
             >
               <Search className="size-4" aria-hidden />
               <span className="t-body-sm hidden sm:inline">Search</span>

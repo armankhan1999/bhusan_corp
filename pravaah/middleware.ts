@@ -90,9 +90,16 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   /**
-   * Explicit exclusions rather than one broad negative lookahead. The previous
-   * matcher admitted every `_next/*` path that was not `static` or `image`,
-   * so RSC payload and data requests were being guarded too.
+   * Keep this expression boring. Vercel compiles the matcher into its own
+   * routing table at the end of `vercel build`, and its parser is narrower than
+   * JavaScript's regex engine: adding a `.*\.` alternative here to skip
+   * extensioned paths built cleanly through all 80 routes and then failed the
+   * deploy with `Unhandled type: "ColonToken"` — a routing-compiler error, with
+   * nothing wrong in the application itself.
+   *
+   * This is the form that has always compiled. The finer exclusions it does not
+   * express — `_next/data`, static file extensions — are applied by `isOpen()`
+   * above, which costs one function invocation and cannot break a build.
    */
-  matcher: ["/((?!_next/static|_next/image|_next/data|favicon.ico|.*\\.).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
