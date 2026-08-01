@@ -47,12 +47,30 @@ export function encodeSession(s: Session): string {
   return encodeURIComponent(JSON.stringify(s));
 }
 
+/**
+ * The 12 valid roles, derived from a map the compiler already proves exhaustive
+ * over `Role`. Deriving rather than re-listing keeps this in step with the enum
+ * without importing `lib/schemas/enums`, which would pull zod into the Edge
+ * middleware bundle.
+ */
+const VALID_ROLES = new Set<string>(Object.keys(LANDING_ROUTE));
+
+export function isRole(value: unknown): value is Role {
+  return typeof value === "string" && VALID_ROLES.has(value);
+}
+
 export function decodeSession(raw: string | undefined | null): Session | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(decodeURIComponent(raw)) as Session;
     // AR-5 — a schema-version mismatch resets cleanly rather than throwing.
-    if (!parsed || parsed.v !== SCHEMA_VERSION || !parsed.role) return null;
+    if (!parsed || parsed.v !== SCHEMA_VERSION) return null;
+    // A cookie is user-editable, so the role is untrusted input. It must be a
+    // real member of the enum, not merely present: every consumer indexes a
+    // Record<Role, …> with it, and an unrecognised string yields undefined —
+    // which, in middleware, throws and fails the whole request.
+    if (!isRole(parsed.role)) return null;
+    if (parsed.impersonatedFrom && !isRole(parsed.impersonatedFrom.role)) return null;
     return parsed;
   } catch {
     return null;
