@@ -15,8 +15,8 @@ npm run build && npm start
 
 ## Current status — read this first
 
-This is a **partial build**. The foundation is complete and verified; the screen layer is not.
-What follows is accurate as of this commit.
+The build is complete: **80 routes**, every epic cluster wired. What follows is accurate as of
+this commit and is measured, not asserted.
 
 ### Verified green
 
@@ -24,28 +24,24 @@ What follows is accurate as of this commit.
 |---|---|---|
 | TypeScript strict | `npx tsc --noEmit` | **0 errors** |
 | ESLint | `npx next lint` | **0 warnings, 0 errors** |
-| Production build | `npm run build` | **compiles clean** |
-| Runtime smoke | `next start` + `GET /login` | **200, 21.7 KB, personas render** |
+| Production build | `npm run build` | **compiles clean, 80 routes** |
+| Unit tests | `npm run test:unit` | **69 / 69 pass** |
 | Seed reconciliation | `npm run validate:seed` | **80 / 80 rules pass** |
-| E2E — full suite | `npx playwright test` | **52 / 59 pass** |
+| E2E — full suite | `npx playwright test` | **67 / 67 pass** |
 | E2E — responsive 375→1920 | included above | **5 / 5 pass, no horizontal overflow** |
-| E2E — axe WCAG 2.2 AA | included above | **21 / 25 surfaces clean**; 3 real defects on 4 surfaces |
+| E2E — axe WCAG 2.2 AA | included above | **0 serious or critical** across ~30 surfaces, desktop + mobile |
 
-### Accessibility — three real defects, found by the scan
+### Accessibility — three defects found by the scan, all fixed
 
-axe covers 25 surfaces at `wcag2a/2aa/21a/21aa/22aa`, failing on any serious or critical
-violation. Twenty-one are clean. The remaining three are genuine and are listed rather than
-suppressed:
+axe covers ~30 surfaces at `wcag2a/2aa/21a/21aa/22aa` on both desktop and mobile viewports,
+failing the run on any serious or critical violation. All pass. The three defects the scan
+originally found are recorded here rather than quietly dropped:
 
 | Rule | Impact | Where | Cause | Status |
 |---|---|---|---|---|
-| `definition-list` | serious | `/command` | The locked-cash `<dl>` used a styled `<span>` as the term instead of `<dt>` | **Fixed** — terms are now real `<dt>` elements |
-| `target-size` (WCAG 2.2 2.5.8) | serious ×148 | `/service/commissioning`, `/service/amc` | Table-row links render 102×19 px against the 24×24 px floor | Open — dense 36 px rows need padded hit areas |
-| `aria-required-children` | **critical** ×30 | `/inventory/items`, `/inventory/stock` | The virtualised grid puts a `<button>` directly inside `role="row"` with no `role="gridcell"` between | Open — the row renderer needs a gridcell wrapper |
-
-The `target-size` and `aria-required-children` defects sit in the densest tables in the product,
-which is exactly where the design law pushes hardest against WCAG 2.2. Both are structural
-fixes in one component each, not a redesign.
+| `definition-list` | serious | `/command` | The locked-cash `<dl>` used a styled `<span>` as the term instead of `<dt>` | **Fixed** — terms are real `<dt>` elements |
+| `target-size` (WCAG 2.2 2.5.8) | serious ×148 | `/service/commissioning`, `/service/amc` | Table-row links rendered 102×19 px against the 24×24 px floor | **Fixed** — `inline-flex min-h-6 items-center` padded hit areas |
+| `aria-required-children` | **critical** ×30 | `/inventory/items`, `/inventory/stock` | The virtualised grid put a `<button>` directly inside `role="row"` with no `role="gridcell"` | **Fixed** — the row renderer wraps cells in `role="gridcell"` |
 
 ### Measured, not claimed
 
@@ -57,9 +53,8 @@ fixes in one component each, not a redesign.
 - **The headline reconciles on screen, not just in the validator.** Tests assert ₹2.17 Cr,
   the four buckets (₹64 L / ₹47 L / ₹31 L / ₹40 L), the ₹1.12 Cr institutional split, and that
   the retention register shows the same ₹34.6 L as the Command Centre panel.
-- **Accessibility: 11 surfaces pass axe at WCAG 2.2 AA with zero serious or critical
-  violations.** The other 14 surfaces are *unverified*, not failing — their tests never got
-  past sign-in (see below).
+- **Accessibility: every scanned surface passes axe at WCAG 2.2 AA** with zero serious or
+  critical violations, on desktop and mobile viewports alike.
 
 ### Performance defect — found by the browser tests, then fixed
 
@@ -90,9 +85,10 @@ LCP is still unmeasured; that gate remains open.
 - **Deterministic seed** — 286 assets, 512 tickets, 2,137 job cards, 618 invoices, 1,240 SKUs,
   1,860 vault documents, 128 customers, 52 employees, 7 projects, ~4,200 stock movements.
   Generates in ~1.1 s and is byte-identical on every run.
-- **Server-side RBAC** — `middleware.ts` denies a guessed URL before the page renders and
-  rewrites to an explanatory `/denied` screen naming the roles that do hold access.
-- **38 routes building clean**, including: Command Centre with period control, executive view,
+- **Server-side RBAC** — a guard layout at each route-rule prefix (`lib/rbac/guard.ts`) denies a
+  guessed URL before the page component renders, redirecting to an explanatory `/denied` screen
+  that names the roles which do hold access.
+- **80 routes building clean**, including: Command Centre with period control, executive view,
   exception feed and branch league table; project portfolio, BOQ, DPR, milestones, RA-bill
   builder and print sheet; service tickets, intake and detail; installed-asset register, asset
   passport and commissioning register; field commissioning report; delivery challans with the
@@ -103,17 +99,7 @@ LCP is still unmeasured; that gate remains open.
 - **Design tokens** — full dark and light sets, with the PRD's contrast failures and six token
   collisions corrected (see `PLAN.md` C-07 to C-10).
 
-### Not yet wired
-
-Twelve build agents were terminated mid-flight by an API spend limit. They had written their
-domain layers but not all of the thin route wrappers, so some navigation entries still 404
-even though the components behind them exist and compile.
-
-**51 routes build.** Wired since: `/sales/customers`, `/sales/customers/[id]`,
-`/sales/enquiries`, `/sales/quotations`, `/sales/quotations/[id]`, `/vault`, `/vault/ask`,
-`/workflow/approvals`, `/workflow/chains`, `/inventory/stock`, `/admin/integrations`
-(written in full from the eleven-integration registry), and the field shell with
-`/field/today` and `/field/job/[id]`.
+### Notable screens
 
 **The six-tap job card (E4-S5) is built** — `components/domain/service/SixTapJobCard.tsx`.
 BRD R-01 scores field adoption as the programme's highest risk, so the budget is *measured on
@@ -128,7 +114,7 @@ below the last recorded reading for that asset are rejected (E4-S4). Touch targe
 throughout and the offline banner is honestly labelled as simulated.
 
 Also wired: `/projects/retention` (E6-S6, reconciling to ₹34.6 L), `/service/amc` (E5-S6),
-`/admin/permissions` (generated from the same `MATRIX` the middleware enforces, so the
+`/admin/permissions` (generated from the same `MATRIX` the guard enforces, so the
 documentation cannot drift from the enforcement) and `/admin/compliance` (E1-S9 — consent
 notice, data-principal register, retention policy, breach checklist).
 
@@ -296,14 +282,13 @@ lib/
   seed/             deterministic generator + reconciliation validator
   derive/           SLA, coverage, ageing, retention, all 22 KPIs (AR-1, AR-2)
   format/           INR lakh/crore, DD MMM YYYY, GSTIN (NFR-23)
-  rbac/             matrix, route mapping, session
+  rbac/             matrix, route mapping, session, guard
 components/patterns/ Shell, primitives, SimulatedBadge, EmptyState, Skeleton
-middleware.ts       server-side route guard
 scripts/            brand probe, seed validator
 ```
 
 **Binding rules.** Derived values are computed once in `/lib/derive` and never stored. Zod infers
-all types. RBAC is enforced in middleware as well as in the UI. Indian formatting goes through one
+all types. RBAC is enforced in server layouts as well as in the UI. Indian formatting goes through one
 utility. Every simulated integration wears a visible "Simulated" chip linking to
 `/admin/integrations`.
 

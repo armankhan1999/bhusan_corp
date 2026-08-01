@@ -54,7 +54,7 @@ A line-by-line read of all four documents surfaced 16 conflicts that block a det
 | C-03 | De-scope order drops E13-S1 (orphaning P0 E13-S4) and E14-S6 (failing A-21, A-22). | Not exercised — everything is built. Recorded so the client's v1.1 re-cut fixes the order. |
 | C-04 | PRD §18 gates A-01…A-04 at end of S2, but A-02 needs E2-S3 (S5), A-03 needs E12-S1 (S5), A-04 needs all of E8 (S5). | Gate is unachievable as written. Build order follows **dependency**, not the PRD sprint table. |
 | C-05 | Six-tap budget defined three ways: E4-S5 AC says "no parts consumed"; A-05 and the demo script both include a part. | **E4-S5 AC wins** (stories > PRD). Definition published on-screen: a *tap* is one discrete pointer/keyboard commit; a *standard visit* is one asset, one root cause, outcome Resolved, no parts. A **live tap counter** is rendered in the job card so the claim is measurable, not asserted. A separate 8-tap path covers the with-parts case demonstrated in the script. |
-| C-06 | `localStorage` session (FR-M1-01, AR-6) cannot be read by a route handler, yet NFR-19/AR-4/RBAC-1 demand server-side denial. | **Mirror the session into a `pravaah.v1.session` cookie** alongside `localStorage`. AR-6 amended (documented). Route handlers and middleware read the cookie, so a guessed URL is genuinely denied server-side and logged. |
+| C-06 | `localStorage` session (FR-M1-01, AR-6) cannot be read by a route handler, yet NFR-19/AR-4/RBAC-1 demand server-side denial. | **Mirror the session into a `pravaah.v1.session` cookie** alongside `localStorage`. AR-6 amended (documented). Server components read the cookie, so a guessed URL is genuinely denied server-side and logged. Enforcement began as Edge middleware and now lives in guard layouts (`lib/rbac/guard.ts`) — see the deployment note below. |
 | C-07 | Six token collisions: `--v-air`=`--warn`=`--dv-3`; `--sla-comfortable`=`--ok`; `--sla-breached`=`--danger`; `--info`=`--primary-500`=`--dv-1`; `--v-water`=`--dv-2`; `--v-project`=`--dv-4`. Contradicts PRD §11.2 colour rules 1 and 2. | **Separate ramps.** Verticals get their own scale (air = evidenced `#FD6701`), semantics their own, SLA its own 4 distinct steps, charts an independent 8-colour `--dv-*` ramp. |
 | C-08 | Published dark palette fails its own AA rule (NFR-09, E1-S4, E14-S3): `--text-lo` 3.84:1, `--text-inv` on `--primary-600` 3.41:1, `--danger`-on-tint 3.84:1, `--info`-on-tint 4.05:1, `--ok`-on-tint 4.29:1. | **Corrected tokens.** `--text-lo` → `#7C8899`; solid-accent text → white; tint backgrounds darkened. Every pair asserted by a Vitest contrast unit test so regressions fail the build. |
 | C-09 | Light theme declares only surfaces/text/3 primary steps, with semantics left as a prose note. | **Light theme fully specified** to the same token count as dark, same AA test applied. |
@@ -127,7 +127,7 @@ Agents share only `/lib`. Any agent failing a validation gate is re-dispatched w
 | Story | P | Title | Primary files |
 |---|---|---|---|
 | E14-S1 | P0 | Deterministic seed engine + reconciliation validator | `lib/seed/*`, `lib/seed/validate.ts`, `scripts/validate-seed.ts` |
-| E1-S1 | P0 | Role login + demo persona switching | `app/(auth)/login/page.tsx`, `lib/rbac/session.ts`, `middleware.ts` |
+| E1-S1 | P0 | Role login + demo persona switching | `app/login/page.tsx`, `lib/rbac/session.ts`, `lib/rbac/guard.ts` |
 | E1-S2 | P0 | Application shell & navigation | `app/(app)/layout.tsx`, `components/patterns/{Rail,Header,Breadcrumbs}.tsx` |
 | E1-S3 | P0 | RBAC across nav, routes, data | `lib/rbac/{matrix,guard,scope}.ts`, `app/api/_lib/guard.ts` |
 | E1-S4 | P1 | Theme + density preferences | `app/globals.css`, `components/patterns/ThemeDensity.tsx` |
@@ -276,3 +276,41 @@ Dark-first industrial control room on the PRD §11 token set, corrected per C-07
 | Acceptance | manual walk | A-01 … A-22 |
 
 Deliverable README carries: 12 role credentials, the seed model and reconciliation rules, the demo script, the simulated-integration inventory with Phase 2 prerequisites, and **measured** performance figures (not targets).
+
+
+---
+
+## Deployment note — why the route guard is not Edge middleware
+
+RBAC-1 layer 2 was implemented as `middleware.ts` and worked locally, but could not be kept.
+
+On Vercel the deployed Edge bundle threw `ReferenceError: __dirname is not defined` at module
+scope. `__dirname` is a Node CommonJS global with no equivalent in the Edge runtime, and the
+symbol appears nowhere in a locally built bundle — verified against the middleware manifest,
+whose Edge function is only `edge-runtime-webpack.js` and `middleware.js`. It was never
+reproducible locally, because `next start` runs middleware in a permissive Node sandbox rather
+than a real Edge isolate.
+
+The consequence is what forced the change. A middleware fault does not degrade: it replaces the
+whole response with `MIDDLEWARE_INVOCATION_FAILED`. Every route returned 500 — including
+`/login`, the one page that could have cleared a bad cookie, and `/favicon.ico`. A throw at
+module scope is not catchable from inside the handler, so no amount of defensive code in the
+function body helps.
+
+The guard now sits in server layouts, one at each `ROUTE_RULES` prefix. These run on the same
+Node runtime as the pages, so what passes locally is what runs in production, and a fault
+renders one route's error boundary instead of blanking the site. Enforcement is still
+server-side, which is what RBAC-1 requires.
+
+**Placement follows longest-prefix, with one exception.** Nesting means a route must satisfy its
+ancestors' capabilities too. That is equivalent to `capabilityForPath` for every role and prefix
+but one: `PROJECT_MANAGER` and `ACCOUNTS_EXECUTIVE` hold `command.exceptions` without holding
+`command`, so a guard on `/command` would wrongly deny them `/command/exceptions`. `/command`
+and `/admin` therefore guard themselves from inside a `(overview)` route group, which applies to
+the index route without becoming an ancestor of the children. The equivalence was computed
+across all twelve roles before the layouts were generated.
+
+**One behavioural difference worth knowing.** Where a route has a `loading.tsx`, the response
+streams, so the 200 is committed before the guard resolves and the redirect is delivered inside
+the RSC stream rather than as a 307. The page component still never renders — a denied role
+receives no data from it, only the redirect — and the browser follows it normally.

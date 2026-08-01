@@ -10,12 +10,12 @@ import {
 } from "lucide-react";
 import { TODAY_ISO, getDataset } from "@/lib/seed";
 import { CAPABILITIES, MATRIX, can, grantFor, type Capability } from "@/lib/rbac/matrix";
+import { requireCapability } from "@/lib/rbac/guard";
 import { ROLE_LABEL, type Role } from "@/lib/schemas/enums";
 import { formatCount, formatDate, pluralise } from "@/lib/format";
 import { Overline, Panel } from "@/components/patterns/primitives";
 import { INTEGRATIONS } from "@/components/domain/admin/integrations";
 import { buildMasters } from "@/components/domain/admin/mastersData";
-import { requireSession } from "@/components/domain/admin/serverSession";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +43,10 @@ interface AdminCard {
  * links to rather than decorating it.
  */
 export default async function AdminIndexPage() {
-  const session = await requireSession();
+  // RBAC-1 — guarded here, not in a layout: every /admin/* child carries its
+  // own capability, so an ancestor guard would demand admin.users of roles
+  // such as AUDITOR that only hold admin.audit.
+  const session = await requireCapability("admin.users", "/admin");
   const ds = getDataset();
   const role: Role = session.role;
 

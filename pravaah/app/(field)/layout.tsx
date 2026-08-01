@@ -12,7 +12,9 @@ import { initials } from "@/lib/format";
  */
 export default async function FieldLayout({ children }: { children: React.ReactNode }) {
   const session = decodeSession((await cookies()).get(SESSION_COOKIE)?.value);
-  if (!session) redirect("/login");
+  // See app/(app)/layout.tsx — the per-route guard beneath this one knows the
+  // requested path and redirects with `?next=`; this layout does not.
+  if (!session) return <>{children}</>;
   if (isExpired(session, Date.now())) redirect("/login?reason=idle");
 
   const tabs = [

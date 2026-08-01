@@ -8,7 +8,15 @@ import { CommandPaletteMount } from "@/components/domain/admin/CommandPaletteMou
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = decodeSession((await cookies()).get(SESSION_COOKIE)?.value);
-  if (!session) redirect("/login");
+  if (!session) {
+    // Deliberately not redirecting from here. This layout renders before the
+    // per-route guards and does not know which path was requested, so it would
+    // send the user to a bare /login and lose their destination. Every route
+    // beneath it carries a guard that does know its own path and redirects with
+    // `?next=`, satisfying E1-S1. Rendering children unwrapped lets that guard
+    // run; the Shell needs a session and is skipped.
+    return <>{children}</>;
+  }
   if (isExpired(session, Date.now())) redirect("/login?reason=idle");
 
   const ds = getDataset();
