@@ -6,46 +6,93 @@ import { can, capabilityForPath, LANDING_ROUTE } from "./lib/rbac/matrix";
  * RBAC-1 layer 2 — the route guard. A user who guesses a URL is denied here,
  * server-side, not merely hidden from the navigation. The denial is carried to
  * the denied page so it can be written to the audit log (RBAC-6).
+ *
+ * Runs on the Edge runtime in production, which is stricter than the Node
+ * sandbox `next start` uses locally. Two consequences shape this file:
+ *
+ *   1. Everything it imports must be Edge-safe. `lib/rbac/matrix` and
+ *      `lib/rbac/session` are pure data and pure functions, and their only
+ *      reference to `lib/schemas/enums` is `import type`, so zod never enters
+ *      the Edge bundle. Do not add a value import from the schema layer here.
+ *   2. A throw in middleware fails the whole request with
+ *      MIDDLEWARE_INVOCATION_FAILED — a blank 500 on every route, including the
+ *      login page. So the body is wrapped: an unexpected fault degrades to
+ *      "unauthenticated" rather than taking the site down, and reports itself
+ *      through a response header instead of a stack trace the user cannot see.
  */
+
+/** Asset-ish paths never need a guard, and shouldn't pay for one. */
+const PUBLIC_FILE = /\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|txt|xml|json|webmanifest|woff2?|ttf|otf|eot|css|js|map)$/i;
+
+const OPEN_PATHS = ["/login", "/denied"];
+
+function isOpen(pathname: string): boolean {
+  return (
+    OPEN_PATHS.includes(pathname) ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api/session") ||
+    pathname === "/favicon.ico" ||
+    PUBLIC_FILE.test(pathname)
+  );
+}
+
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  if (
-    pathname.startsWith("/_next") || pathname.startsWith("/api/session") ||
-    pathname === "/login" || pathname.startsWith("/favicon") || pathname === "/denied"
-  ) {
-    return NextResponse.next();
-  }
+  if (isOpen(pathname)) return NextResponse.next();
 
-  const session = decodeSession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (!session) {
+  try {
+    const session = decodeSession(req.cookies.get(SESSION_COOKIE)?.value);
+
+    if (!session) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "";
+      // E1-S1 — the requested path is retained for post-login return.
+      url.searchParams.set("next", pathname + search);
+      return NextResponse.redirect(url);
+    }
+
+    if (pathname === "/") {
+      const landing = LANDING_ROUTE[session.role] ?? "/login";
+      const qIndex = landing.indexOf("?");
+      const url = req.nextUrl.clone();
+      url.pathname = qIndex === -1 ? landing : landing.slice(0, qIndex);
+      url.search = qIndex === -1 ? "" : landing.slice(qIndex);
+      return NextResponse.redirect(url);
+    }
+
+    const cap = capabilityForPath(pathname);
+    if (cap && !can(session.role, cap)) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/denied";
+      url.search = "";
+      url.searchParams.set("path", pathname);
+      url.searchParams.set("cap", cap);
+      return NextResponse.rewrite(url);
+    }
+
+    return NextResponse.next();
+  } catch (err) {
+    // Fail closed on identity, but never fail the request itself.
     const url = req.nextUrl.clone();
     url.pathname = "/login";
-    // E1-S1 — the requested path is retained for post-login return.
+    url.search = "";
     url.searchParams.set("next", pathname + search);
-    return NextResponse.redirect(url);
+    const res = NextResponse.redirect(url);
+    res.headers.set(
+      "x-pravaah-guard-error",
+      (err instanceof Error ? err.message : String(err)).slice(0, 180),
+    );
+    return res;
   }
-
-  if (pathname === "/") {
-    const url = req.nextUrl.clone();
-    const landing = LANDING_ROUTE[session.role];
-    const [p, q] = landing.split("?");
-    url.pathname = p!;
-    url.search = q ? `?${q}` : "";
-    return NextResponse.redirect(url);
-  }
-
-  const cap = capabilityForPath(pathname);
-  if (cap && !can(session.role, cap)) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/denied";
-    url.search = `?path=${encodeURIComponent(pathname)}&cap=${cap}`;
-    return NextResponse.rewrite(url);
-  }
-
-  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  /**
+   * Explicit exclusions rather than one broad negative lookahead. The previous
+   * matcher admitted every `_next/*` path that was not `static` or `image`,
+   * so RSC payload and data requests were being guarded too.
+   */
+  matcher: ["/((?!_next/static|_next/image|_next/data|favicon.ico|.*\\.).*)"],
 };
